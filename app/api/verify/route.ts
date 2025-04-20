@@ -1,30 +1,23 @@
 import { NextResponse } from 'next/server';
-import { PBFTBlockchain } from '@/utils/blockchain';
+import { Blockchain } from '@/utils/blockchain';
 import crypto from 'crypto';
-const blockchain = new PBFTBlockchain();
+const blockchain = new Blockchain();
 
 export async function POST(request: Request) {
-  try {
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const buffer = Buffer.from(await file.arrayBuffer());
-    
-    const result = await blockchain.addBlock(buffer);
-    const hash = crypto.createHash('sha512').update(buffer).digest('hex');
+  const formData = await request.formData();
+  const file = formData.get('file') as File;
+  const buffer = Buffer.from(await file.arrayBuffer());
 
-    return NextResponse.json({
-      valid: result.valid,
-      hash: hash,
-      error: result.error
-    });
-  } catch (error) {
-    return NextResponse.json({
-      valid: false,
-      error: 'Internal server error'
-    }, { status: 500 });
-  }
-}
+  const isValid = await blockchain.addBlock(buffer);
 
-export async function GET() {
-  return NextResponse.json(blockchain.getChain());
+  return NextResponse.json({
+    valid: isValid,
+    log: {
+      id: crypto.randomUUID(),
+      fileName: file.name,
+      hash: crypto.createHash('sha512').update(buffer).digest('hex'),
+      status: isValid ? 'valid' : 'tampered',
+      timestamp: new Date().toISOString()
+    }
+  });
 }
